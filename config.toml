@@ -1,0 +1,21 @@
+update_interval = 900
+update_retries = 3
+
+[notification_service]
+endpoint = "http://localhost:3000"
+timeout_secs = 10
+
+[[feeds]]
+name = "Источник для разработки"
+url = "http://localhost:4000/dev.rss"
+active = true
+
+[[feeds]]
+name = "Главные новости OpenNET"
+url = "https://www.opennet.ru/opennews/opennews_6_utf.rss"
+active = false
+
+[[feeds]]
+name = "Новости / Хабр"
+url = "https://habr.ru/ru/rss/news"
+active = false
