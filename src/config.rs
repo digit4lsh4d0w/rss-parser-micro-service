@@ -7,7 +7,7 @@ use feed::FeedConfig;
 use crate::config::{
     error::{ConfigError, ConfigResult, ValidationError, ValidationResult},
     feed::{DEFAULT_UPDATE_INTERVAL, DEFAULT_UPDATE_RETRIES, RawFeedConfig},
-    validation::{validate_update_interval, validate_update_retries},
+    validation::{validate_feeds, validate_update_interval, validate_update_retries},
 };
 
 pub mod error;
@@ -70,38 +70,10 @@ struct RawConfig {
 
 impl RawConfig {
     fn validate(&self) -> ValidationResult<()> {
-        self.validate_feeds()?;
-        self.validate_update_interval()?;
-        self.validate_update_retries()?;
-
-        Ok(())
-    }
-
-    fn validate_feeds(&self) -> ValidationResult<()> {
-        let feeds: Vec<&RawFeedConfig> = self
-            .feeds
-            .iter()
-            .filter(|raw_feed| raw_feed.active.unwrap_or(true))
-            .collect();
-
-        if feeds.is_empty() {
-            return Err(ValidationError::NoActiveFeeds);
-        }
-
-        feeds.iter().try_for_each(|raw_feed| raw_feed.validate())?;
-
-        Ok(())
-    }
-
-    fn validate_update_interval(&self) -> ValidationResult<()> {
+        validate_feeds(&self.feeds)?;
         if let Some(value) = self.update_interval {
             validate_update_interval(value)?;
         }
-
-        Ok(())
-    }
-
-    fn validate_update_retries(&self) -> ValidationResult<()> {
         if let Some(value) = self.update_retries {
             validate_update_retries(value)?;
         }

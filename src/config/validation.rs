@@ -1,6 +1,6 @@
 use crate::config::{
     error::{ValidationError, ValidationResult},
-    feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES},
+    feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES, RawFeedConfig},
 };
 
 pub fn validate_feed_name(value: &str) -> ValidationResult<()> {
@@ -37,6 +37,21 @@ pub fn validate_update_retries(value: usize) -> ValidationResult<()> {
     if value > MAX_UPDATE_RETRIES {
         return Err(ValidationError::UpdateRetriesTooBig(value));
     }
+
+    Ok(())
+}
+
+pub fn validate_feeds(feeds: &[RawFeedConfig]) -> ValidationResult<()> {
+    let feeds: Vec<&RawFeedConfig> = feeds
+        .iter()
+        .filter(|raw_feed| raw_feed.active.unwrap_or(true))
+        .collect();
+
+    if feeds.is_empty() {
+        return Err(ValidationError::NoActiveFeeds);
+    }
+
+    feeds.iter().try_for_each(|raw_feed| raw_feed.validate())?;
 
     Ok(())
 }
