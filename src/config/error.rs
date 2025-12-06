@@ -9,14 +9,14 @@ pub enum ConfigError {
     FileReadError(#[from] std::io::Error),
     #[error("Failed to parse TOML: {0}")]
     TomlParseError(#[from] toml::de::Error),
-    #[error("Invalid feed configuration: {0}")]
-    InvalidFeedConfig(String),
-    #[error("No active feeds found in configuration")]
-    NoActiveFeedsError,
+    #[error("Validation error: {0}")]
+    ValidationError(ValidationError),
 }
 
 #[derive(Debug, PartialEq, Error)]
-pub enum FeedValidationError {
+pub enum ValidationError {
+    #[error("No active feeds found in configuration")]
+    NoActiveFeeds,
     #[error("Feed name cannot be empty")]
     EmptyName,
     #[error("Feed URL cannot be empty")]
@@ -32,4 +32,4 @@ pub enum FeedValidationError {
 }
 
 pub type ConfigResult<T> = Result<T, ConfigError>;
-pub type FeedValidationResult<T> = Result<T, FeedValidationError>;
+pub type ValidationResult<T> = Result<T, ValidationError>;
