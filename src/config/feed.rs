@@ -2,46 +2,57 @@ use serde::Deserialize;
 
 use crate::config::error::{FeedValidationError, FeedValidationResult};
 
-const DEFAULT_UPDATE_INTERVAL: usize = 15 * 60;
-const MIN_UPDATE_INTERVAL: usize = 5 * 60;
+pub const DEFAULT_UPDATE_INTERVAL: usize = 15 * 60;
+pub const MIN_UPDATE_INTERVAL: usize = 5 * 60;
 
-const DEFAULT_UPDATE_RETRIES: usize = 5;
-const MIN_UPDATE_RETRIES: usize = 1;
-const MAX_UPDATE_RETRIES: usize = 10;
+pub const DEFAULT_UPDATE_RETRIES: usize = 3;
+pub const MIN_UPDATE_RETRIES: usize = 1;
+pub const MAX_UPDATE_RETRIES: usize = 10;
 
-/// Представляет RSS фид.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Deserialize)]
+pub(crate) struct RawFeedConfig {
+    pub name: String,
+    pub url: String,
+    pub update_interval: Option<usize>,
+    pub update_retries: Option<usize>,
+    pub active: Option<bool>,
+}
+
+/// RSS фид.
+#[derive(Debug)]
 pub struct FeedConfig {
     /// Название фида.
-    pub name: Option<String>,
+    pub name: String,
 
     /// Источник RSS фида.
     pub url: String,
 
     /// Интервал обновлениия в секундах.
-    /// Значение по умолчанию: 15 минут.
-    pub update_interval: Option<usize>,
+    ///
+    /// Значение по умолчанию: [`DEFAULT_UPDATE_INTERVAL`].
+    pub update_interval: usize,
 
     /// Максимальное количество попыток.
-    /// Значение по умолчанию: 5 попыток.
-    pub update_retries: Option<usize>,
-
-    /// Активен ли фид.
     ///
-    /// Варианты:
-    ///
-    /// - `true` - фид будет обрабатываться.
-    /// - `false` - фид не будет обрабатываться.
-    ///
-    /// Значение по умолчанию: `true`
-    pub active: Option<bool>,
+    /// Значение по умолчанию: [`DEFAULT_UPDATE_RETRIES`].
+    pub update_retries: usize,
 }
 
 impl FeedConfig {
     pub fn validate(&self) -> FeedValidationResult<()> {
+        self.validate_name()?;
         self.validate_url()?;
         self.validate_update_interval()?;
         self.validate_update_retries()?;
+
+        Ok(())
+    }
+
+    fn validate_name(&self) -> FeedValidationResult<()> {
+        if self.name.trim().is_empty() {
+            return Err(FeedValidationError::EmptyName);
+        }
+
         Ok(())
     }
 
@@ -56,12 +67,9 @@ impl FeedConfig {
     }
 
     fn validate_update_interval(&self) -> FeedValidationResult<()> {
-        if let Some(update_interval) = self.update_interval
-            && update_interval < MIN_UPDATE_INTERVAL
-        {
+        if self.update_interval < MIN_UPDATE_INTERVAL {
             return Err(FeedValidationError::UpdateIntervalTooSmall(
-                MIN_UPDATE_INTERVAL,
-                update_interval,
+                self.update_interval,
             ));
         }
 
@@ -69,21 +77,15 @@ impl FeedConfig {
     }
 
     fn validate_update_retries(&self) -> FeedValidationResult<()> {
-        if let Some(update_retries) = self.update_retries
-            && update_retries < MIN_UPDATE_RETRIES
-        {
+        if self.update_retries < MIN_UPDATE_RETRIES {
             return Err(FeedValidationError::UpdateRetriesTooSmall(
-                MIN_UPDATE_RETRIES,
-                update_retries,
+                self.update_retries,
             ));
         }
 
-        if let Some(update_retries) = self.update_retries
-            && update_retries > MAX_UPDATE_RETRIES
-        {
+        if self.update_retries > MAX_UPDATE_RETRIES {
             return Err(FeedValidationError::UpdateRetriesTooBig(
-                MAX_UPDATE_RETRIES,
-                update_retries,
+                self.update_retries,
             ));
         }
 
@@ -94,11 +96,10 @@ impl FeedConfig {
 impl Default for FeedConfig {
     fn default() -> Self {
         Self {
-            name: None,
+            name: "".to_string(),
             url: "".to_string(),
-            update_interval: Some(DEFAULT_UPDATE_INTERVAL),
-            update_retries: Some(DEFAULT_UPDATE_RETRIES),
-            active: Some(true),
+            update_interval: DEFAULT_UPDATE_INTERVAL,
+            update_retries: DEFAULT_UPDATE_RETRIES,
         }
     }
 }
@@ -135,40 +136,43 @@ mod tests {
 
     #[test]
     fn test_feed_too_small_update_interval() {
+        const INVALID_UPDATE_INTERVAL: usize = 5;
         let feed = FeedConfig {
-            update_interval: Some(5),
+            update_interval: INVALID_UPDATE_INTERVAL,
             ..Default::default()
         };
 
         assert_eq!(
             feed.validate_update_interval().unwrap_err(),
-            FeedValidationError::UpdateIntervalTooSmall(MIN_UPDATE_INTERVAL, 5)
+            FeedValidationError::UpdateIntervalTooSmall(INVALID_UPDATE_INTERVAL)
         );
     }
 
     #[test]
     fn test_feed_too_small_update_retries() {
+        const INVALID_UPDATE_RETRIES: usize = 0;
         let feed = FeedConfig {
-            update_retries: Some(0),
+            update_retries: INVALID_UPDATE_RETRIES,
             ..Default::default()
         };
 
         assert_eq!(
             feed.validate_update_retries().unwrap_err(),
-            FeedValidationError::UpdateRetriesTooSmall(MIN_UPDATE_RETRIES, 0)
+            FeedValidationError::UpdateRetriesTooSmall(INVALID_UPDATE_RETRIES)
         );
     }
 
     #[test]
     fn test_feed_too_big_update_retries() {
+        const INVALID_UPDATE_RETRIES: usize = 20;
         let feed = FeedConfig {
-            update_retries: Some(20),
+            update_retries: INVALID_UPDATE_RETRIES,
             ..Default::default()
         };
 
         assert_eq!(
             feed.validate_update_retries().unwrap_err(),
-            FeedValidationError::UpdateRetriesTooBig(MAX_UPDATE_RETRIES, 20)
+            FeedValidationError::UpdateRetriesTooBig(INVALID_UPDATE_RETRIES)
         );
     }
 }

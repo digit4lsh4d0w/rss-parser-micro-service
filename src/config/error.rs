@@ -1,6 +1,8 @@
 use anyhow::Result;
 use thiserror::Error;
 
+use crate::config::feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES};
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("Failed to read config file: {0}")]
@@ -15,16 +17,18 @@ pub enum ConfigError {
 
 #[derive(Debug, PartialEq, Error)]
 pub enum FeedValidationError {
+    #[error("Feed name cannot be empty")]
+    EmptyName,
     #[error("Feed URL cannot be empty")]
     EmptyUrl,
     #[error("Invalid feed URL format")]
     InvalidUrlFormat,
-    #[error("Update interval must be at least {0} seconds, got: {1}")]
-    UpdateIntervalTooSmall(usize, usize),
-    #[error("Update retries must be at least {0}, got: {1}")]
-    UpdateRetriesTooSmall(usize, usize),
-    #[error("Update retries must be no more than {0}, got: {1}")]
-    UpdateRetriesTooBig(usize, usize),
+    #[error("Update interval must be at least {MIN_UPDATE_INTERVAL} seconds, got: {0}")]
+    UpdateIntervalTooSmall(usize),
+    #[error("Update retries must be at least {MIN_UPDATE_RETRIES}, got: {0}")]
+    UpdateRetriesTooSmall(usize),
+    #[error("Update retries must be no more than {MAX_UPDATE_RETRIES}, got: {0}")]
+    UpdateRetriesTooBig(usize),
 }
 
 pub type ConfigResult<T> = Result<T, ConfigError>;
