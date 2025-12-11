@@ -1,15 +1,7 @@
 use crate::config::{
     error::{ValidationError, ValidationResult},
-    feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES, RawFeedConfig},
+    feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES},
 };
-
-pub fn validate_feed_name(value: &str) -> ValidationResult<()> {
-    if value.trim().is_empty() {
-        return Err(ValidationError::EmptyName);
-    }
-
-    Ok(())
-}
 
 pub fn validate_url(value: &str) -> ValidationResult<()> {
     if value.trim().is_empty() {
@@ -21,37 +13,30 @@ pub fn validate_url(value: &str) -> ValidationResult<()> {
     Ok(())
 }
 
-pub fn validate_update_interval(value: usize) -> ValidationResult<()> {
-    if value < MIN_UPDATE_INTERVAL {
-        return Err(ValidationError::UpdateIntervalTooSmall(value));
+pub fn validate_feed_name(value: &str) -> ValidationResult<()> {
+    if value.trim().is_empty() {
+        return Err(ValidationError::FeedEmptyName);
     }
 
     Ok(())
 }
 
-pub fn validate_update_retries(value: usize) -> ValidationResult<()> {
+pub fn validate_feed_update_interval(value: usize) -> ValidationResult<()> {
+    if value < MIN_UPDATE_INTERVAL {
+        return Err(ValidationError::FeedUpdateIntervalTooSmall(value));
+    }
+
+    Ok(())
+}
+
+pub fn validate_feed_update_retries(value: usize) -> ValidationResult<()> {
     if value < MIN_UPDATE_RETRIES {
-        return Err(ValidationError::UpdateRetriesTooSmall(value));
+        return Err(ValidationError::FeedUpdateRetriesTooSmall(value));
     }
 
     if value > MAX_UPDATE_RETRIES {
-        return Err(ValidationError::UpdateRetriesTooBig(value));
+        return Err(ValidationError::FeedUpdateRetriesTooBig(value));
     }
-
-    Ok(())
-}
-
-pub fn validate_feeds(feeds: &[RawFeedConfig]) -> ValidationResult<()> {
-    let feeds: Vec<&RawFeedConfig> = feeds
-        .iter()
-        .filter(|raw_feed| raw_feed.active.unwrap_or(true))
-        .collect();
-
-    if feeds.is_empty() {
-        return Err(ValidationError::NoActiveFeeds);
-    }
-
-    feeds.iter().try_for_each(|raw_feed| raw_feed.validate())?;
 
     Ok(())
 }
@@ -61,44 +46,74 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_feed_empty_url() {
-        let error = validate_url("").unwrap_err();
-        assert_eq!(error, ValidationError::EmptyUrl);
+    fn test_empty_url() {
+        let result = validate_url("");
+        assert_eq!(result, Err(ValidationError::EmptyUrl));
     }
 
     #[test]
-    fn test_feed_invalid_url() {
-        let error = validate_url("not-a-url").unwrap_err();
-        assert_eq!(error, ValidationError::InvalidUrlFormat);
+    fn test_invalid_url() {
+        let result = validate_url("not-a-url");
+        assert_eq!(result, Err(ValidationError::InvalidUrlFormat));
+    }
+
+    #[test]
+    fn test_valid_url() {
+        let result = validate_url("http://localhsot");
+        assert_eq!(result, Ok(()));
+    }
+
+    #[test]
+    fn test_empty_feed_name() {
+        let result = validate_feed_name("");
+        assert_eq!(result, Err(ValidationError::FeedEmptyName));
+    }
+
+    #[test]
+    fn test_valid_feed_name() {
+        let result = validate_feed_name("feed");
+        assert_eq!(result, Ok(()));
     }
 
     #[test]
     fn test_feed_too_small_update_interval() {
         const INVALID_UPDATE_INTERVAL: usize = 5;
-        let error = validate_update_interval(INVALID_UPDATE_INTERVAL).unwrap_err();
+        let result = validate_feed_update_interval(INVALID_UPDATE_INTERVAL);
         assert_eq!(
-            error,
-            ValidationError::UpdateIntervalTooSmall(INVALID_UPDATE_INTERVAL)
+            result,
+            Err(ValidationError::FeedUpdateIntervalTooSmall(
+                INVALID_UPDATE_INTERVAL
+            ))
         );
+    }
+
+    #[test]
+    fn test_feed_valid_update_interval() {
+        let result = validate_feed_update_interval(MIN_UPDATE_INTERVAL);
+        assert_eq!(result, Ok(()));
     }
 
     #[test]
     fn test_feed_too_small_update_retries() {
         const INVALID_UPDATE_RETRIES: usize = 0;
-        let error = validate_update_retries(INVALID_UPDATE_RETRIES).unwrap_err();
+        let result = validate_feed_update_retries(INVALID_UPDATE_RETRIES);
         assert_eq!(
-            error,
-            ValidationError::UpdateRetriesTooSmall(INVALID_UPDATE_RETRIES)
+            result,
+            Err(ValidationError::FeedUpdateRetriesTooSmall(
+                INVALID_UPDATE_RETRIES
+            ))
         );
     }
 
     #[test]
     fn test_feed_too_big_update_retries() {
         const INVALID_UPDATE_RETRIES: usize = 20;
-        let error = validate_update_retries(INVALID_UPDATE_RETRIES).unwrap_err();
+        let result = validate_feed_update_retries(INVALID_UPDATE_RETRIES);
         assert_eq!(
-            error,
-            ValidationError::UpdateRetriesTooBig(INVALID_UPDATE_RETRIES)
+            result,
+            Err(ValidationError::FeedUpdateRetriesTooBig(
+                INVALID_UPDATE_RETRIES
+            ))
         );
     }
 }

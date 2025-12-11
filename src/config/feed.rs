@@ -3,7 +3,8 @@ use serde::Deserialize;
 use crate::config::{
     error::ValidationResult,
     validation::{
-        validate_feed_name, validate_update_interval, validate_update_retries, validate_url,
+        validate_feed_name, validate_feed_update_interval, validate_feed_update_retries,
+        validate_url,
     },
 };
 
@@ -34,6 +35,29 @@ pub struct FeedConfig {
     pub update_retries: usize,
 }
 
+impl FeedConfig {
+    pub fn try_from_raw_feed_config(
+        raw_feed: RawFeedConfig,
+        update_interval: Option<usize>,
+        update_retries: Option<usize>,
+    ) -> ValidationResult<FeedConfig> {
+        raw_feed.validate()?;
+
+        Ok(FeedConfig {
+            name: raw_feed.name,
+            url: raw_feed.url,
+            update_interval: raw_feed
+                .update_interval
+                .or(update_interval)
+                .unwrap_or(DEFAULT_UPDATE_INTERVAL),
+            update_retries: raw_feed
+                .update_retries
+                .or(update_retries)
+                .unwrap_or(DEFAULT_UPDATE_RETRIES),
+        })
+    }
+}
+
 #[derive(Deserialize)]
 pub struct RawFeedConfig {
     pub name: String,
@@ -48,24 +72,12 @@ impl RawFeedConfig {
         validate_feed_name(&self.name)?;
         validate_url(&self.url)?;
         if let Some(value) = self.update_interval {
-            validate_update_interval(value)?;
+            validate_feed_update_interval(value)?;
         }
         if let Some(value) = self.update_retries {
-            validate_update_retries(value)?;
+            validate_feed_update_retries(value)?;
         }
 
         Ok(())
-    }
-}
-
-impl Default for RawFeedConfig {
-    fn default() -> Self {
-        Self {
-            name: "".to_string(),
-            url: "".to_string(),
-            update_interval: Some(DEFAULT_UPDATE_INTERVAL),
-            update_retries: Some(DEFAULT_UPDATE_RETRIES),
-            active: Some(true),
-        }
     }
 }

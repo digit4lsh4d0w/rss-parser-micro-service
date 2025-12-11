@@ -2,8 +2,8 @@ update_interval = 900
 update_retries = 3
 
 [notification_service]
-endpoint = "http://localhost:3000"
-timeout_secs = 10
+url = "http://localhost:3000"
+timeout = 10
 
 [[feeds]]
 name = "Источник для разработки"

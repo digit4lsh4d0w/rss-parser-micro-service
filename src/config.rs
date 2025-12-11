@@ -6,8 +6,9 @@ use feed::FeedConfig;
 
 use crate::config::{
     error::{ConfigError, ConfigResult, ValidationError, ValidationResult},
-    feed::{DEFAULT_UPDATE_INTERVAL, DEFAULT_UPDATE_RETRIES, RawFeedConfig},
-    validation::{validate_feeds, validate_update_interval, validate_update_retries},
+    feed::RawFeedConfig,
+    notification::{NotificationServiceConfig, RawNotificationServiceConfig},
+    validation::{validate_feed_update_interval, validate_feed_update_retries},
 };
 
 pub mod error;
@@ -18,9 +19,10 @@ mod validation;
 /// Основные настройки приложения
 #[derive(Debug)]
 pub struct Config {
-    /// Список фидов
+    /// Список конфигураций фидов
     pub feeds: Vec<FeedConfig>,
-    // pub notification_service: NotificationServiceConfig,
+    /// Конфигурация сервиса уведомлений
+    pub notification_service: NotificationServiceConfig,
 }
 
 impl TryFrom<RawConfig> for Config {
@@ -29,25 +31,33 @@ impl TryFrom<RawConfig> for Config {
     fn try_from(raw_config: RawConfig) -> Result<Self, Self::Error> {
         raw_config.validate()?;
 
-        let feeds = raw_config
+        let active_raw_feeds: Vec<RawFeedConfig> = raw_config
             .feeds
             .into_iter()
             .filter(|raw_feed| raw_feed.active.unwrap_or(true))
-            .map(|raw_feed| FeedConfig {
-                name: raw_feed.name,
-                url: raw_feed.url,
-                update_interval: raw_feed
-                    .update_interval
-                    .or(raw_config.update_interval)
-                    .unwrap_or(DEFAULT_UPDATE_INTERVAL),
-                update_retries: raw_feed
-                    .update_retries
-                    .or(raw_config.update_retries)
-                    .unwrap_or(DEFAULT_UPDATE_RETRIES),
-            })
             .collect();
 
-        Ok(Self { feeds })
+        if active_raw_feeds.is_empty() {
+            return Err(ValidationError::NoActiveFeeds);
+        }
+
+        let feeds = active_raw_feeds
+            .into_iter()
+            .map(|raw_feed| {
+                FeedConfig::try_from_raw_feed_config(
+                    raw_feed,
+                    raw_config.update_interval,
+                    raw_config.update_retries,
+                )
+            })
+            .collect::<ValidationResult<Vec<FeedConfig>>>()?;
+
+        let notification_service = raw_config.notification_service.try_into()?;
+
+        Ok(Self {
+            feeds,
+            notification_service,
+        })
     }
 }
 
@@ -65,17 +75,16 @@ struct RawConfig {
     ///
     /// Значение по умолчанию: [`DEFAULT_UPDATE_RETRIES`].
     pub update_retries: Option<usize>,
-    // pub notification_service: NotificationServiceConfig,
+    pub notification_service: RawNotificationServiceConfig,
 }
 
 impl RawConfig {
     fn validate(&self) -> ValidationResult<()> {
-        validate_feeds(&self.feeds)?;
         if let Some(value) = self.update_interval {
-            validate_update_interval(value)?;
+            validate_feed_update_interval(value)?;
         }
         if let Some(value) = self.update_retries {
-            validate_update_retries(value)?;
+            validate_feed_update_retries(value)?;
         }
 
         Ok(())

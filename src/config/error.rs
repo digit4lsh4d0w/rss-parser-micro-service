@@ -1,7 +1,10 @@
 use anyhow::Result;
 use thiserror::Error;
 
-use crate::config::feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES};
+use crate::config::{
+    feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES},
+    notification::MIN_NOTIFICATION_TIMEOUT,
+};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -15,20 +18,22 @@ pub enum ConfigError {
 
 #[derive(Debug, PartialEq, Error)]
 pub enum ValidationError {
+    #[error("URL cannot be empty")]
+    EmptyUrl,
+    #[error("Invalid URL format")]
+    InvalidUrlFormat,
+    #[error("Feed name cannot be empty")]
+    FeedEmptyName,
+    #[error("Update interval must be at least {MIN_UPDATE_INTERVAL} seconds, got: {0}")]
+    FeedUpdateIntervalTooSmall(usize),
+    #[error("Update retries must be at least {MIN_UPDATE_RETRIES}, got: {0}")]
+    FeedUpdateRetriesTooSmall(usize),
+    #[error("Update retries must be no more than {MAX_UPDATE_RETRIES}, got: {0}")]
+    FeedUpdateRetriesTooBig(usize),
+    #[error("Notification service timeout must be at least {MIN_NOTIFICATION_TIMEOUT}, got: {0}")]
+    NotificationServiceTimeoutTooSmall(usize),
     #[error("No active feeds found in configuration")]
     NoActiveFeeds,
-    #[error("Feed name cannot be empty")]
-    EmptyName,
-    #[error("Feed URL cannot be empty")]
-    EmptyUrl,
-    #[error("Invalid feed URL format")]
-    InvalidUrlFormat,
-    #[error("Update interval must be at least {MIN_UPDATE_INTERVAL} seconds, got: {0}")]
-    UpdateIntervalTooSmall(usize),
-    #[error("Update retries must be at least {MIN_UPDATE_RETRIES}, got: {0}")]
-    UpdateRetriesTooSmall(usize),
-    #[error("Update retries must be no more than {MAX_UPDATE_RETRIES}, got: {0}")]
-    UpdateRetriesTooBig(usize),
 }
 
 pub type ConfigResult<T> = Result<T, ConfigError>;
