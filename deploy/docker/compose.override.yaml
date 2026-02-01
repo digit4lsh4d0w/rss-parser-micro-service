@@ -1,0 +1,18 @@
+services:
+  rabbitmq:
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_stream advertised_host localhost"
+    ports:
+      # RabbitMQ Stream
+      - 5552:5552 # (without TLS)
+      # - 5551:5551 # (with TLS)
+      # AMQP
+      - 5672:5672 # (without TLS)
+      # - 5671:5671 # (with TLS)
+      # Management
+      - 15672:15672 # (without TLS)
+      # - 15671:15671 # (with TLS)
+    volumes:
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
