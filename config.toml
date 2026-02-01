@@ -1,14 +1,15 @@
 update_interval = 900
 update_retries = 3
 
-[notification_service]
-url = "http://localhost:3000"
-timeout = 10
+[queue]
+endpoint = "amqp://localhost:5672"
+exchange_name = "news"
+username = "admin"
+password = "admin"
 
 [[feeds]]
 name = "Источник для разработки"
 url = "http://localhost:4000/dev.rss"
-active = true
 
 [[feeds]]
 name = "Главные новости OpenNET"

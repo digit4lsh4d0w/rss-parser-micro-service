@@ -2,101 +2,94 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use feed::FeedConfig;
-
-use crate::config::{
-    error::{ConfigError, ConfigResult, ValidationError, ValidationResult},
-    feed::RawFeedConfig,
-    notification::{NotificationServiceConfig, RawNotificationServiceConfig},
-    validation::{validate_feed_update_interval, validate_feed_update_retries},
+use error::ConfigError;
+use feed::{
+    FeedConfig, RawFeedConfig, validate_feed_update_interval, validate_feed_update_retries,
 };
+use queue::QueueConfig;
 
 pub mod error;
 mod feed;
-mod notification;
-mod validation;
+mod queue;
 
 /// Основные настройки приложения
 #[derive(Debug)]
 pub struct Config {
     /// Список конфигураций фидов
     pub feeds: Vec<FeedConfig>,
-    /// Конфигурация сервиса уведомлений
-    pub notification_service: NotificationServiceConfig,
+
+    /// Конфигурация очереди
+    pub queue: QueueConfig,
 }
 
 impl TryFrom<RawConfig> for Config {
-    type Error = ValidationError;
+    type Error = ConfigError;
 
     fn try_from(raw_config: RawConfig) -> Result<Self, Self::Error> {
         raw_config.validate()?;
 
-        let active_raw_feeds: Vec<RawFeedConfig> = raw_config
+        // Конвертация сырых активных фидов в обогащенные
+        let feeds = raw_config
             .feeds
             .into_iter()
-            .filter(|raw_feed| raw_feed.active.unwrap_or(true))
-            .collect();
-
-        if active_raw_feeds.is_empty() {
-            return Err(ValidationError::NoActiveFeeds);
-        }
-
-        let feeds = active_raw_feeds
-            .into_iter()
-            .map(|raw_feed| {
-                FeedConfig::try_from_raw_feed_config(
-                    raw_feed,
-                    raw_config.update_interval,
-                    raw_config.update_retries,
-                )
+            .filter(|rf| rf.active.unwrap_or(true))
+            .map(|rf| {
+                FeedConfig::from_raw(rf, raw_config.update_interval, raw_config.update_retries)
             })
-            .collect::<ValidationResult<Vec<FeedConfig>>>()?;
+            .collect::<Vec<FeedConfig>>();
 
-        let notification_service = raw_config.notification_service.try_into()?;
+        if feeds.is_empty() {
+            return Err(ConfigError::NoActiveFeeds);
+        }
 
         Ok(Self {
             feeds,
-            notification_service,
+            queue: raw_config.queue,
         })
     }
 }
 
 #[derive(Deserialize)]
 struct RawConfig {
-    /// Список фидов
+    /// Список конфигураций фидов
     pub feeds: Vec<RawFeedConfig>,
 
-    /// Интервал обновлениия в секундах.
+    /// Интервал обновлениия в секундах
     ///
-    /// Значение по умолчанию: [`DEFAULT_UPDATE_INTERVAL`].
-    pub update_interval: Option<usize>,
+    /// Значение по умолчанию: [`DEFAULT_UPDATE_INTERVAL`]
+    pub update_interval: Option<i64>,
 
-    /// Максимальное количество попыток.
+    /// Максимальное количество попыток
     ///
-    /// Значение по умолчанию: [`DEFAULT_UPDATE_RETRIES`].
+    /// Значение по умолчанию: [`DEFAULT_UPDATE_RETRIES`]
     pub update_retries: Option<usize>,
-    pub notification_service: RawNotificationServiceConfig,
+
+    /// Конфигурация очереди
+    pub queue: QueueConfig,
 }
 
 impl RawConfig {
-    fn validate(&self) -> ValidationResult<()> {
+    fn validate(&self) -> Result<(), ConfigError> {
+        self.feeds.iter().try_for_each(|f| f.validate())?;
+
         if let Some(value) = self.update_interval {
             validate_feed_update_interval(value)?;
         }
+
         if let Some(value) = self.update_retries {
             validate_feed_update_retries(value)?;
         }
+
+        self.queue.validate()?;
 
         Ok(())
     }
 }
 
-pub async fn load_config(path: impl AsRef<Path>) -> ConfigResult<Config> {
+pub async fn load_config(path: impl AsRef<Path>) -> Result<Config, ConfigError> {
     let content = tokio::fs::read_to_string(path).await?;
     let raw_config: RawConfig = toml::from_str(&content)?;
-    let config = raw_config
-        .try_into()
-        .map_err(ConfigError::ValidationError)?;
+    let config = raw_config.try_into()?;
 
     Ok(config)
 }

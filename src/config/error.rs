@@ -1,10 +1,6 @@
-use anyhow::Result;
 use thiserror::Error;
 
-use crate::config::{
-    feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES},
-    notification::MIN_NOTIFICATION_TIMEOUT,
-};
+use crate::config::feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -12,29 +8,38 @@ pub enum ConfigError {
     FileReadError(#[from] std::io::Error),
     #[error("Failed to parse TOML: {0}")]
     TomlParseError(#[from] toml::de::Error),
-    #[error("Validation error: {0}")]
-    ValidationError(ValidationError),
-}
-
-#[derive(Debug, PartialEq, Error)]
-pub enum ValidationError {
-    #[error("URL cannot be empty")]
-    EmptyUrl,
-    #[error("Invalid URL format")]
-    InvalidUrlFormat,
-    #[error("Feed name cannot be empty")]
-    FeedEmptyName,
-    #[error("Update interval must be at least {MIN_UPDATE_INTERVAL} seconds, got: {0}")]
-    FeedUpdateIntervalTooSmall(usize),
-    #[error("Update retries must be at least {MIN_UPDATE_RETRIES}, got: {0}")]
-    FeedUpdateRetriesTooSmall(usize),
-    #[error("Update retries must be no more than {MAX_UPDATE_RETRIES}, got: {0}")]
-    FeedUpdateRetriesTooBig(usize),
-    #[error("Notification service timeout must be at least {MIN_NOTIFICATION_TIMEOUT}, got: {0}")]
-    NotificationServiceTimeoutTooSmall(usize),
+    #[error("Feed configuration error: {0}")]
+    FeedError(#[from] FeedError),
+    #[error("Queue configuration error: {0}")]
+    QueueError(#[from] QueueError),
     #[error("No active feeds found in configuration")]
     NoActiveFeeds,
 }
 
-pub type ConfigResult<T> = Result<T, ConfigError>;
-pub type ValidationResult<T> = Result<T, ValidationError>;
+#[derive(Debug, Error)]
+pub enum FeedError {
+    #[error("Name cannot be empty")]
+    EmptyName,
+    #[error("URL cannot be empty")]
+    EmptyUrl,
+    #[error("URL is invalid: {0}")]
+    InvalidUrl(#[from] url::ParseError),
+    #[error("Update interval must be at least {MIN_UPDATE_INTERVAL} seconds, got: {0}")]
+    InvalidUpdateInterval(i64),
+    #[error(
+        "Update retries must meet the following conditions: {MIN_UPDATE_RETRIES} <= retries <= {MAX_UPDATE_RETRIES}, got: {0}"
+    )]
+    InvalidUpdateRetries(usize),
+}
+
+#[derive(Debug, Error)]
+pub enum QueueError {
+    #[error("Endpoint cannot be empty")]
+    EmptyEndpoint,
+    #[error("Exchange name cannot be empty")]
+    EmptyExchangeName,
+    #[error("Username cannot be empty")]
+    EmptyUsername,
+    #[error("Password cannot be empty")]
+    EmptyPassword,
+}
