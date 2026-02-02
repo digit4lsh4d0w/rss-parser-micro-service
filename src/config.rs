@@ -3,9 +3,7 @@ use std::path::Path;
 use serde::Deserialize;
 
 use error::ConfigError;
-use feed::{
-    FeedConfig, RawFeedConfig, validate_feed_update_interval, validate_feed_update_retries,
-};
+use feed::{FeedConfig, RawFeedConfig};
 use queue::QueueConfig;
 
 pub mod error;
@@ -73,11 +71,11 @@ impl RawConfig {
         self.feeds.iter().try_for_each(|f| f.validate())?;
 
         if let Some(value) = self.update_interval {
-            validate_feed_update_interval(value)?;
+            feed::validate_feed_update_interval(value)?;
         }
 
         if let Some(value) = self.update_retries {
-            validate_feed_update_retries(value)?;
+            feed::validate_feed_update_retries(value)?;
         }
 
         self.queue.validate()?;

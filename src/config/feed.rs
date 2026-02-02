@@ -35,17 +35,20 @@ pub struct FeedConfig {
 }
 
 impl FeedConfig {
+    /// Создает конфигурацию фида из сырых данных
+    ///
+    /// Если в сырых данных не указаны значения для `update_interval` и `update_retries`,
+    /// то они будут взяты из аргументов функции. Если и они не указаны, то будут
+    /// использованы значения по умолчанию.
     pub fn from_raw(
         raw_feed: RawFeedConfig,
         update_interval: Option<i64>,
         update_retries: Option<usize>,
     ) -> FeedConfig {
-        let update_interval = Duration::seconds(
-            raw_feed
-                .update_interval
-                .or(update_interval)
-                .unwrap_or(DEFAULT_UPDATE_INTERVAL),
-        );
+        let update_interval = raw_feed
+            .update_interval
+            .or(update_interval)
+            .unwrap_or(DEFAULT_UPDATE_INTERVAL);
 
         let update_retries = raw_feed
             .update_retries
@@ -55,12 +58,13 @@ impl FeedConfig {
         FeedConfig {
             name: raw_feed.name,
             url: raw_feed.url,
-            update_interval,
+            update_interval: Duration::seconds(update_interval),
             update_retries,
         }
     }
 }
 
+/// Структура для десериализации конфигурации фида из файла.
 #[derive(Deserialize)]
 pub struct RawFeedConfig {
     pub name: String,
@@ -154,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn test_feed_too_small_update_interval() {
+    fn test_feed_update_interval_too_small() {
         const INVALID_UPDATE_INTERVAL: i64 = 5;
         let result = validate_feed_update_interval(INVALID_UPDATE_INTERVAL);
         assert!(matches!(
@@ -164,13 +168,13 @@ mod tests {
     }
 
     #[test]
-    fn test_feed_valid_update_interval() {
+    fn test_feed_update_interval_valid() {
         let result = validate_feed_update_interval(MIN_UPDATE_INTERVAL);
         assert!(matches!(result, Ok(())));
     }
 
     #[test]
-    fn test_feed_too_small_update_retries() {
+    fn test_feed_update_retries_too_small() {
         const INVALID_UPDATE_RETRIES: usize = 0;
         let result = validate_feed_update_retries(INVALID_UPDATE_RETRIES);
         assert!(matches!(
@@ -180,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_feed_too_big_update_retries() {
+    fn test_feed_update_retries_too_big() {
         const INVALID_UPDATE_RETRIES: usize = 20;
         let result = validate_feed_update_retries(INVALID_UPDATE_RETRIES);
         assert!(matches!(
