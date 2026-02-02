@@ -1,13 +1,15 @@
+use url::Url;
+
 #[derive(Debug, Clone)]
 pub struct News {
     pub title: String,
     pub description: String,
-    pub link: String,
-    pub permanent_link: Option<String>,
+    pub link: Url,
+    pub permanent_link: Option<Url>,
     pub author_email: Option<String>,
     pub categories: Option<Vec<String>>,
     pub media: Option<String>,
-    pub comments_url: Option<String>,
+    pub comments_url: Option<Url>,
     pub pub_date: Option<String>,
 }
 
@@ -15,17 +17,17 @@ pub struct News {
 pub struct NewsBuilder {
     title: String,
     description: String,
-    link: String,
-    permanent_link: Option<String>,
+    link: Url,
+    permanent_link: Option<Url>,
     author_email: Option<String>,
     categories: Option<Vec<String>>,
     media: Option<String>,
-    comments_url: Option<String>,
+    comments_url: Option<Url>,
     pub_date: Option<String>,
 }
 
 impl NewsBuilder {
-    pub fn new(title: String, description: String, link: String) -> Self {
+    pub fn new(title: String, description: String, link: Url) -> Self {
         NewsBuilder {
             title,
             description,
@@ -39,7 +41,7 @@ impl NewsBuilder {
         }
     }
 
-    pub fn with_permanent_link(mut self, permanent_link: String) -> Self {
+    pub fn with_permanent_link(mut self, permanent_link: Url) -> Self {
         self.permanent_link = Some(permanent_link);
         self
     }
@@ -59,7 +61,7 @@ impl NewsBuilder {
         self
     }
 
-    pub fn with_comments_url(mut self, comments_url: String) -> Self {
+    pub fn with_comments_url(mut self, comments_url: Url) -> Self {
         self.comments_url = Some(comments_url);
         self
     }
