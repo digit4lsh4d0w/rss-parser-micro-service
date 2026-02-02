@@ -3,8 +3,10 @@ use std::path::Path;
 use serde::Deserialize;
 
 use error::ConfigError;
-use feed::{FeedConfig, RawFeedConfig};
+use feed::FeedDTO;
 use queue::QueueConfig;
+
+use crate::domain::feed::{Feed, errors::FeedError};
 
 pub mod error;
 mod feed;
@@ -14,27 +16,24 @@ mod queue;
 #[derive(Debug)]
 pub struct Config {
     /// Список конфигураций фидов
-    pub feeds: Vec<FeedConfig>,
+    pub feeds: Vec<Feed>,
 
     /// Конфигурация очереди
     pub queue: QueueConfig,
 }
 
-impl TryFrom<RawConfig> for Config {
+impl TryFrom<ConfigDTO> for Config {
     type Error = ConfigError;
 
-    fn try_from(raw_config: RawConfig) -> Result<Self, Self::Error> {
-        raw_config.validate()?;
-
-        // Конвертация сырых активных фидов в обогащенные
-        let feeds = raw_config
+    fn try_from(config: ConfigDTO) -> Result<Self, Self::Error> {
+        let feeds = config
             .feeds
             .into_iter()
+            // Фильтрация неактивных фидов
             .filter(|rf| rf.active.unwrap_or(true))
-            .map(|rf| {
-                FeedConfig::from_raw(rf, raw_config.update_interval, raw_config.update_retries)
-            })
-            .collect::<Vec<FeedConfig>>();
+            // Преобразование в доменную модель [`Feed`]
+            .map(|rf| rf.try_into_feed(config.update_interval, config.update_retries))
+            .collect::<Result<Vec<Feed>, FeedError>>()?;
 
         if feeds.is_empty() {
             return Err(ConfigError::NoActiveFeeds);
@@ -42,20 +41,20 @@ impl TryFrom<RawConfig> for Config {
 
         Ok(Self {
             feeds,
-            queue: raw_config.queue,
+            queue: config.queue,
         })
     }
 }
 
 #[derive(Deserialize)]
-struct RawConfig {
+struct ConfigDTO {
     /// Список конфигураций фидов
-    pub feeds: Vec<RawFeedConfig>,
+    pub feeds: Vec<FeedDTO>,
 
     /// Интервал обновлениия в секундах
     ///
     /// Значение по умолчанию: [`DEFAULT_UPDATE_INTERVAL`]
-    pub update_interval: Option<i64>,
+    pub update_interval: Option<u64>,
 
     /// Максимальное количество попыток
     ///
@@ -66,27 +65,9 @@ struct RawConfig {
     pub queue: QueueConfig,
 }
 
-impl RawConfig {
-    fn validate(&self) -> Result<(), ConfigError> {
-        self.feeds.iter().try_for_each(|f| f.validate())?;
-
-        if let Some(value) = self.update_interval {
-            feed::validate_feed_update_interval(value)?;
-        }
-
-        if let Some(value) = self.update_retries {
-            feed::validate_feed_update_retries(value)?;
-        }
-
-        self.queue.validate()?;
-
-        Ok(())
-    }
-}
-
 pub async fn load_config(path: impl AsRef<Path>) -> Result<Config, ConfigError> {
     let content = tokio::fs::read_to_string(path).await?;
-    let raw_config: RawConfig = toml::from_str(&content)?;
+    let raw_config: ConfigDTO = toml::from_str(&content)?;
     let config = raw_config.try_into()?;
 
     Ok(config)

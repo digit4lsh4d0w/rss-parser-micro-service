@@ -1,195 +1,36 @@
-use chrono::Duration;
 use serde::Deserialize;
 
-use crate::infrastructure::config::error::FeedError;
+use crate::domain::feed::{
+    Feed,
+    errors::FeedError,
+    types::{FeedName, FeedUpdateInterval, FeedUpdateRetries, FeedUrl},
+};
 
-/// Стандартный интервал опроса фидов - 15 минут
-pub const DEFAULT_UPDATE_INTERVAL: i64 = 15 * 60;
-/// Минимальный интервал опроса фидов - 5 минут
-pub const MIN_UPDATE_INTERVAL: i64 = 5 * 60;
-/// Стандартное количество попыток опроса фида
-pub const DEFAULT_UPDATE_RETRIES: usize = 3;
-/// Минимальное количество попыток опроса фида
-pub const MIN_UPDATE_RETRIES: usize = 1;
-/// Максимальное количество попыток опроса фида
-pub const MAX_UPDATE_RETRIES: usize = 10;
-
-/// Конфигурация источника RSS фида
-#[derive(Debug)]
-pub struct FeedConfig {
-    /// Название фида
-    pub name: String,
-
-    /// Источник RSS фида
-    pub url: String,
-
-    /// Интервал обновлениия в секундах
-    ///
-    /// Значение по умолчанию: [`DEFAULT_UPDATE_INTERVAL`]
-    pub update_interval: Duration,
-
-    /// Максимальное количество попыток
-    ///
-    /// Значение по умолчанию: [`DEFAULT_UPDATE_RETRIES`]
-    pub update_retries: usize,
-}
-
-impl FeedConfig {
-    /// Создает конфигурацию фида из сырых данных
-    ///
-    /// Если в сырых данных не указаны значения для `update_interval` и `update_retries`,
-    /// то они будут взяты из аргументов функции. Если и они не указаны, то будут
-    /// использованы значения по умолчанию.
-    pub fn from_raw(
-        raw_feed: RawFeedConfig,
-        update_interval: Option<i64>,
-        update_retries: Option<usize>,
-    ) -> FeedConfig {
-        let update_interval = raw_feed
-            .update_interval
-            .or(update_interval)
-            .unwrap_or(DEFAULT_UPDATE_INTERVAL);
-
-        let update_retries = raw_feed
-            .update_retries
-            .or(update_retries)
-            .unwrap_or(DEFAULT_UPDATE_RETRIES);
-
-        FeedConfig {
-            name: raw_feed.name,
-            url: raw_feed.url,
-            update_interval: Duration::seconds(update_interval),
-            update_retries,
-        }
-    }
-}
-
-/// Структура для десериализации конфигурации фида из файла.
 #[derive(Deserialize)]
-pub struct RawFeedConfig {
+pub struct FeedDTO {
     pub name: String,
     pub url: String,
-    pub update_interval: Option<i64>,
+    pub update_interval: Option<u64>,
     pub update_retries: Option<usize>,
     pub active: Option<bool>,
 }
 
-impl RawFeedConfig {
-    pub fn validate(&self) -> Result<(), FeedError> {
-        validate_feed_name(&self.name)?;
-        validate_url(&self.url)?;
-        if let Some(value) = self.update_interval {
-            validate_feed_update_interval(value)?;
-        }
-        if let Some(value) = self.update_retries {
-            validate_feed_update_retries(value)?;
-        }
+impl FeedDTO {
+    pub fn try_into_feed(
+        self,
+        update_interval: Option<u64>,
+        update_retries: Option<usize>,
+    ) -> Result<Feed, FeedError> {
+        let name = FeedName::new(&self.name)?;
+        let url = FeedUrl::new(&self.url)?;
+        let update_interval = FeedUpdateInterval::new(self.update_interval.or(update_interval))?;
+        let update_retries = FeedUpdateRetries::new(self.update_retries.or(update_retries))?;
 
-        Ok(())
-    }
-}
-
-pub fn validate_feed_name(name: &str) -> Result<(), FeedError> {
-    if name.trim().is_empty() {
-        return Err(FeedError::EmptyName);
-    }
-
-    Ok(())
-}
-
-pub fn validate_url(url: &str) -> Result<(), FeedError> {
-    if url.trim().is_empty() {
-        return Err(FeedError::EmptyUrl);
-    }
-
-    reqwest::Url::parse(url).map_err(FeedError::InvalidUrl)?;
-
-    Ok(())
-}
-
-pub fn validate_feed_update_interval(interval: i64) -> Result<(), FeedError> {
-    if interval < MIN_UPDATE_INTERVAL {
-        return Err(FeedError::InvalidUpdateInterval(interval));
-    }
-
-    Ok(())
-}
-
-pub fn validate_feed_update_retries(retries: usize) -> Result<(), FeedError> {
-    if !(MIN_UPDATE_RETRIES..=MAX_UPDATE_RETRIES).contains(&retries) {
-        return Err(FeedError::InvalidUpdateRetries(retries));
-    }
-
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_empty_feed_name() {
-        let result = validate_feed_name("");
-        assert!(matches!(result, Err(FeedError::EmptyName)));
-    }
-
-    #[test]
-    fn test_valid_feed_name() {
-        let result = validate_feed_name("feed");
-        assert!(matches!(result, Ok(())));
-    }
-
-    #[test]
-    fn test_empty_url() {
-        let result = validate_url("");
-        assert!(matches!(result, Err(FeedError::EmptyUrl)));
-    }
-
-    #[test]
-    fn test_invalid_url() {
-        let result = validate_url("not-a-url");
-        assert!(matches!(result, Err(FeedError::InvalidUrl(_))));
-    }
-
-    #[test]
-    fn test_valid_url() {
-        let result = validate_url("http://localhost");
-        assert!(matches!(result, Ok(())));
-    }
-
-    #[test]
-    fn test_feed_update_interval_too_small() {
-        const INVALID_UPDATE_INTERVAL: i64 = 5;
-        let result = validate_feed_update_interval(INVALID_UPDATE_INTERVAL);
-        assert!(matches!(
-            result,
-            Err(FeedError::InvalidUpdateInterval(INVALID_UPDATE_INTERVAL))
-        ));
-    }
-
-    #[test]
-    fn test_feed_update_interval_valid() {
-        let result = validate_feed_update_interval(MIN_UPDATE_INTERVAL);
-        assert!(matches!(result, Ok(())));
-    }
-
-    #[test]
-    fn test_feed_update_retries_too_small() {
-        const INVALID_UPDATE_RETRIES: usize = 0;
-        let result = validate_feed_update_retries(INVALID_UPDATE_RETRIES);
-        assert!(matches!(
-            result,
-            Err(FeedError::InvalidUpdateRetries(INVALID_UPDATE_RETRIES))
-        ));
-    }
-
-    #[test]
-    fn test_feed_update_retries_too_big() {
-        const INVALID_UPDATE_RETRIES: usize = 20;
-        let result = validate_feed_update_retries(INVALID_UPDATE_RETRIES);
-        assert!(matches!(
-            result,
-            Err(FeedError::InvalidUpdateRetries(INVALID_UPDATE_RETRIES))
-        ));
+        Ok(Feed {
+            name,
+            url,
+            update_interval,
+            update_retries,
+        })
     }
 }
