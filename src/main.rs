@@ -1,4 +1,4 @@
-use rss_parser::config::load_config;
+use rss_parser::infrastructure::config;
 use tracing::{Level, info};
 
 #[tokio::main]
@@ -8,7 +8,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     info!("Starting!");
-    let config = match load_config("./config.toml").await {
+    let config = match config::load_config("./config.toml").await {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error: {e}");

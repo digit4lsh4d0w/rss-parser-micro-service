@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::config::error::QueueError;
+use crate::infrastructure::config::error::QueueError;
 
 /// Конфигурация очереди
 #[derive(Debug, Deserialize)]

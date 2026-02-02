@@ -1,7 +1,7 @@
 use chrono::Duration;
 use serde::Deserialize;
 
-use crate::config::error::FeedError;
+use crate::infrastructure::config::error::FeedError;
 
 /// Стандартный интервал опроса фидов - 15 минут
 pub const DEFAULT_UPDATE_INTERVAL: i64 = 15 * 60;

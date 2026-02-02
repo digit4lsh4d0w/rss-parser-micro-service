@@ -1,6 +1,8 @@
 use thiserror::Error;
 
-use crate::config::feed::{MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES};
+use crate::infrastructure::config::feed::{
+    MAX_UPDATE_RETRIES, MIN_UPDATE_INTERVAL, MIN_UPDATE_RETRIES,
+};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
