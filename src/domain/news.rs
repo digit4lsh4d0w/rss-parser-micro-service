@@ -1,4 +1,3 @@
-/// RSS-Новость
 #[derive(Debug, Clone)]
 pub struct News {
     pub title: String,
