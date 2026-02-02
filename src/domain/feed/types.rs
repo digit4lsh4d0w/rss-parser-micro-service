@@ -60,6 +60,10 @@ impl FeedUpdateInterval {
 
         Ok(Self(Duration::from_mins(minutes)))
     }
+
+    pub fn as_secs(&self) -> u64 {
+        self.0.as_secs()
+    }
 }
 
 /// Максимальное количество попыток
@@ -84,5 +88,159 @@ impl FeedUpdateRetries {
         }
 
         Ok(Self(retries))
+    }
+
+    pub fn as_usize(&self) -> usize {
+        self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// FeedName tests
+    mod feed_name {
+        use super::*;
+
+        #[test]
+        fn test_valid_name() {
+            let name = FeedName::new("Test Feed").unwrap();
+            assert_eq!(name.as_str(), "Test Feed");
+        }
+
+        #[test]
+        fn test_name_trims_whitespace() {
+            let name = FeedName::new("    Test Feed    ").unwrap();
+            assert_eq!(name.as_str(), "Test Feed");
+        }
+
+        #[test]
+        fn test_empty_name_returns_error() {
+            let result = FeedName::new("");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), FeedError::EmptyName));
+        }
+
+        #[test]
+        fn test_whitespace_only_name_returns_error() {
+            let result = FeedName::new("    ");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), FeedError::EmptyName));
+        }
+    }
+
+    /// FeedUrl tests
+    mod feed_url {
+        use super::*;
+
+        #[test]
+        fn test_valid_url() {
+            let url = FeedUrl::new("https://example.com/feed.xml").unwrap();
+            assert_eq!(url.as_str(), "https://example.com/feed.xml");
+        }
+
+        #[test]
+        fn test_url_trims_whitespace() {
+            let url = FeedUrl::new("    https://example.com/feed.xml    ").unwrap();
+            assert_eq!(url.as_str(), "https://example.com/feed.xml");
+        }
+
+        #[test]
+        fn test_invalid_url_returns_error() {
+            let result = FeedUrl::new("not-a-valid-url");
+            assert!(result.is_err());
+        }
+    }
+
+    /// FeedUpdateInterval tests
+    mod feed_update_interval {
+        use super::*;
+
+        #[test]
+        fn test_default_value() {
+            let interval = FeedUpdateInterval::new(None).unwrap();
+            assert_eq!(interval.as_secs(), 15 * 60);
+        }
+
+        #[test]
+        fn test_minimum_value() {
+            let interval = FeedUpdateInterval::new(Some(5)).unwrap();
+            assert_eq!(interval.as_secs(), 5 * 60);
+        }
+
+        #[test]
+        fn test_valid_custom_value() {
+            let interval = FeedUpdateInterval::new(Some(30)).unwrap();
+            assert_eq!(interval.as_secs(), 30 * 60);
+        }
+
+        #[test]
+        fn test_below_minimum_returns_error() {
+            let result = FeedUpdateInterval::new(Some(4));
+            assert!(result.is_err());
+
+            if let Err(FeedError::InvalidUpdateInterval { min, got }) = result {
+                assert_eq!(min, 5);
+                assert_eq!(got, 4);
+            } else {
+                panic!("Expected InvalidUpdateInterval error");
+            }
+        }
+    }
+
+    /// FeedUpdateRetries tests
+    mod feed_update_retries {
+        use super::*;
+
+        #[test]
+        fn test_default_value() {
+            let retries = FeedUpdateRetries::new(None).unwrap();
+            assert_eq!(retries.as_usize(), 3);
+        }
+
+        #[test]
+        fn test_minimum_value() {
+            let retries = FeedUpdateRetries::new(Some(1)).unwrap();
+            assert_eq!(retries.as_usize(), 1);
+        }
+
+        #[test]
+        fn test_maximum_value() {
+            let retries = FeedUpdateRetries::new(Some(10)).unwrap();
+            assert_eq!(retries.as_usize(), 10);
+        }
+
+        #[test]
+        fn test_middle_value() {
+            let retries = FeedUpdateRetries::new(Some(5)).unwrap();
+            assert_eq!(retries.as_usize(), 5);
+        }
+
+        #[test]
+        fn test_below_minimum_returns_error() {
+            let result = FeedUpdateRetries::new(Some(0));
+            assert!(result.is_err());
+            if let Err(FeedError::InvalidUpdateRetries { min, max, got }) = result {
+                assert_eq!(min, 1);
+                assert_eq!(max, 10);
+                assert_eq!(got, 0);
+            } else {
+                panic!("Expected InvalidUpdateRetries error");
+            }
+        }
+
+        #[test]
+        fn test_above_maximum_returns_error() {
+            let result = FeedUpdateRetries::new(Some(11));
+            assert!(result.is_err());
+            if let Err(FeedError::InvalidUpdateRetries { min, max, got }) = result {
+                assert_eq!(min, 1);
+                assert_eq!(max, 10);
+                assert_eq!(got, 11);
+            } else {
+                panic!("Expected InvalidUpdateRetries error");
+            }
+        }
     }
 }
