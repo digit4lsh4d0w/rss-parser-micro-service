@@ -29,7 +29,11 @@ pub struct FeedUrl(Url);
 
 impl FeedUrl {
     pub fn new(url: &str) -> Result<Self, FeedError> {
-        let url = Url::parse(url.trim())?;
+        let url = url.trim();
+        if url.is_empty() {
+            return Err(FeedError::EmptyUrl);
+        }
+        let url = Url::parse(url)?;
 
         Ok(Self(url))
     }
@@ -144,6 +148,13 @@ mod tests {
         fn test_url_trims_whitespace() {
             let url = FeedUrl::new("    https://example.com/feed.xml    ").unwrap();
             assert_eq!(url.as_str(), "https://example.com/feed.xml");
+        }
+
+        #[test]
+        fn test_empty_url_returns_error() {
+            let result = FeedUrl::new("");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), FeedError::EmptyUrl))
         }
 
         #[test]
