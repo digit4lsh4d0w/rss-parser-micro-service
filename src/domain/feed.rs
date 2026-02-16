@@ -6,8 +6,24 @@ pub mod types;
 /// RSS фид
 #[derive(Debug, Clone)]
 pub struct Feed {
-    pub name: FeedName,
-    pub url: FeedUrl,
-    pub update_interval: FeedUpdateInterval,
-    pub update_retries: FeedUpdateRetries,
+    name: FeedName,
+    url: FeedUrl,
+    update_interval: FeedUpdateInterval,
+    update_retries: FeedUpdateRetries,
+}
+
+impl Feed {
+    pub fn new(
+        name: FeedName,
+        url: FeedUrl,
+        update_interval: FeedUpdateInterval,
+        update_retries: FeedUpdateRetries,
+    ) -> Self {
+        Self {
+            name,
+            url,
+            update_interval,
+            update_retries,
+        }
+    }
 }

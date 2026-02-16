@@ -26,11 +26,6 @@ impl FeedDTO {
         let update_interval = FeedUpdateInterval::new(self.update_interval.or(update_interval))?;
         let update_retries = FeedUpdateRetries::new(self.update_retries.or(update_retries))?;
 
-        Ok(Feed {
-            name,
-            url,
-            update_interval,
-            update_retries,
-        })
+        Ok(Feed::new(name, url, update_interval, update_retries))
     }
 }
